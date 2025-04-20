@@ -1,0 +1,128 @@
+version: "3.9"
+
+services:
+  web_server_1:
+    image: putthakun01/web-server:latest
+    container_name: web_server_1
+    ports:
+      - "8002:8001"   # FastAPI
+      - "9101:9100"   # Metrics
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=SY_rabbitmq
+      - REDIS_PORT=6379
+    networks:
+      - SY_network
+    depends_on:
+      SY_rabbitmq:
+        condition: service_healthy
+    restart: always
+
+  web_server_2:
+    image: putthakun01/web-server:latest
+    container_name: web_server_2
+    ports:
+      - "8003:8001"
+      - "9102:9100"
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=SY_rabbitmq
+      - REDIS_PORT=6379
+    networks:
+      - SY_network
+    depends_on:
+      SY_rabbitmq:
+        condition: service_healthy
+    restart: always
+
+  web_server_3:
+    image: putthakun01/web-server:latest
+    container_name: web_server_3
+    ports:
+      - "8004:8001"
+      - "9103:9100"
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=SY_rabbitmq
+      - REDIS_PORT=6379
+    networks:
+      - SY_network
+    depends_on:
+      SY_rabbitmq:
+        condition: service_healthy
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - web_server_1
+      - web_server_2
+      - web_server_3
+    networks:
+      - SY_network
+    restart: always
+
+  SY_rabbitmq:
+    image: rabbitmq:3-management
+    container_name: SY_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: S@ony_devide0102
+      RABBITMQ_DEFAULT_PASS: S@ony_devide0102
+    networks:
+      - SY_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    networks:
+      - SY_network
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - SY_network
+    restart: always
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+
+networks:
+  SY_network:
+    external: true
