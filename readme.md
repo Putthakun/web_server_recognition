@@ -1,0 +1,3 @@
+- git clone 
+- cd repo
+- docker compose up --build
